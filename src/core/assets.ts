@@ -113,7 +113,7 @@ export async function generateQRImage(url: string): Promise<HTMLImageElement | H
     document.body.appendChild(div);
 
     try {
-      const W = window as Window & { QRCode: new (el: HTMLElement, opts: Record<string, unknown>) => { _oQRCode: { getModuleCount(): number; isDark(r: number, c: number): boolean } } & { CorrectLevel: { H: number } } };
+      const W = (window as unknown) as Window & { QRCode: new (el: HTMLElement, opts: Record<string, unknown>) => { _oQRCode: { getModuleCount(): number; isDark(r: number, c: number): boolean } } & { CorrectLevel: { H: number } } };
       const qr = new W.QRCode(div, {
         text:         url,
         width:        256,

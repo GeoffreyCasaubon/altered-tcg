@@ -19,6 +19,7 @@ export interface FontNames {
   bold: string;
   italic: string;
   circled: string | null;
+  [key: string]: string | null;
 }
 
 export interface ForgeConfig {
@@ -43,12 +44,17 @@ export interface ElementDef {
   align?: string;
   isBiome?: boolean;
   biomeKey?: string;
+  isAdmin?: boolean;
+  infoLinePart?: boolean;
+  hasMaxWidth?: boolean;
+  fields?: Array<{ ref: string; prefix?: string; suffix?: string }>;
 }
 
 export interface FramePartDef {
   id: string;
   file?: string;
   default?: Partial<OverlaySettings>;
+  order?: number;
 }
 
 export interface FrameTypeConfig {

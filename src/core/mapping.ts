@@ -136,8 +136,8 @@ export const API_MAPPING: MappingDef & {
   },
 };
 
-export function apiToCardJson(apiJson: Record<string, unknown>, mapping: typeof API_MAPPING): Record<string, unknown> {
-  const fallback = (mapping as MappingDef).langFallback || 'en';
+export function apiToCardJson(apiJson: Record<string, unknown>, mapping: MappingDef): Record<string, unknown> {
+  const fallback = mapping.langFallback || 'en';
   const lang = mapping.lang != null
     ? ((resolve(mapping.lang, apiJson) as string) || fallback)
     : fallback;

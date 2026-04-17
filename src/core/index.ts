@@ -1,6 +1,6 @@
 import { AlteredRender } from './renderer';
-import type { MountResult, ResourceOptions } from './renderer';
-import type { CardJson, MappingDef } from './types';
+import type { MountResult } from './renderer';
+import type { CardJson, MappingDef, ResourceOptions } from './types';
 
 const DEFAULT_CARD_API_URL =
   'https://altered-core-cards-api.toxicity.be/api/cards/reference/{ref}?locale={locale}';

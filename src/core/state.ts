@@ -37,9 +37,9 @@ export function buildStateFromJson(config: ForgeConfig, cardJson: CardJson): Car
 
   for (const el of elements) {
     const g   = (G[el.id]                               || {}) as Partial<ElementSettings & { value?: string; url?: string }>;
-    const ft  = ((ftDefaults as Record<string, unknown>)[el.id] || {}) as Partial<ElementSettings>;
-    const fto = ((ftFactionOverride as Record<string, unknown>)[el.id] || {}) as Partial<ElementSettings>;
-    const fr  = (frameDefs[el.id]                       || {}) as Partial<ElementSettings>;
+    const ft  = ((ftDefaults as Record<string, unknown>)[el.id] || {}) as Partial<ElementSettings & { value?: string; url?: string }>;
+    const fto = ((ftFactionOverride as Record<string, unknown>)[el.id] || {}) as Partial<ElementSettings & { value?: string; url?: string }>;
+    const fr  = (frameDefs[el.id]                       || {}) as Partial<ElementSettings & { value?: string; url?: string }>;
     const d   = (defs[el.id]                            || {}) as Partial<ElementSettings & { value?: string; url?: string }>;
 
     settings[el.id] = {

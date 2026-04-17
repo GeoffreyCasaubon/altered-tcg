@@ -42,7 +42,7 @@ export const API_QR_CODE = {
   url:     'https://altered.gg/{locale}/cards/{reference}',
   vars: {
     reference: 'reference',
-    locale:    (_d, lang) => ({ en: 'en-us', fr: 'fr-fr', es: 'es-es', it: 'it-it', de: 'de-de' }[lang] ?? 'en-us'),
+    locale:    (_d: unknown, lang: string) => ({ en: 'en-us', fr: 'fr-fr', es: 'es-es', it: 'it-it', de: 'de-de' }[lang] ?? 'en-us'),
   },
 };
 
@@ -69,9 +69,13 @@ export const API_TEXT_TRANSFORMS = [
 
 // ── Frame auto-selection helpers ─────────────────────────────────
 // Private — used only inside FRAME_AUTO_SELECT below.
-const loc = (v, lang) => v == null ? null : typeof v === 'object' ? (v[lang] ?? v.en ?? null) : v;
+const loc = (v: unknown, lang: string): string | null =>
+  v == null ? null
+    : typeof v === 'object'
+      ? ((v as Record<string, string | null>)[lang] ?? (v as Record<string, string | null>).en ?? null)
+      : (v as string);
 
-function effectLength(data, lang) {
+function effectLength(data: Record<string, unknown>, lang: string): number {
   const raw = loc(data.mainEffect, lang) ?? '';
   return raw
     .replace(/\{[A-Za-z0-9]\}/g, 'X')
@@ -81,13 +85,15 @@ function effectLength(data, lang) {
     .length;
 }
 
-const hasEcho    = d => { const e = d.echoEffect; return Array.isArray(e) ? e.length > 0 : !!e; };
-const typeRef    = d => d.cardType?.reference ?? '';
-const hasSubtype = (d, ref) => (d.cardSubTypes ?? []).some(s => s.reference === ref);
+const hasEcho    = (d: Record<string, unknown>): boolean => { const e = d.echoEffect; return Array.isArray(e) ? e.length > 0 : !!e; };
+const typeRef    = (d: Record<string, unknown>): string => (d.cardType as { reference?: string } | null)?.reference ?? '';
+const hasSubtype = (d: Record<string, unknown>, ref: string): boolean => ((d.cardSubTypes as { reference: string }[]) ?? []).some(s => s.reference === ref);
+
+type FrameTestFn = (d: Record<string, unknown>, lang: string) => boolean;
 
 // ── Frame auto-selection table ────────────────────────────────────
 // Evaluated in order; first matching rule wins.
-export const FRAME_AUTO_SELECT = {
+export const FRAME_AUTO_SELECT: Record<string, { frameType: string; test: FrameTestFn }[]> = {
   COMMON: [
     { frameType: 'tok_c_1',     test: d     => typeRef(d) === 'TOKEN' },
     { frameType: 'hero_c_1',    test: d     => typeRef(d) === 'HERO'  },

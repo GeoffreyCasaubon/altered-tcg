@@ -8,7 +8,7 @@ import {
   htmlToRuns, drawRichText, drawWrappedText,
   drawMixedLine, measureMixed, drawRoundedRect,
 } from './text';
-import type { CardState, CardJson, ResourceOptions, ForgeConfig } from './types';
+import type { CardState, CardJson, ResourceOptions, ForgeConfig, MappingDef } from './types';
 
 
 // ── Responsive canvas ─────────────────────────────────────────
@@ -168,7 +168,7 @@ function renderFrame(ctx: CanvasRenderingContext2D, state: CardState, W: number,
 }
 
 function renderFrameParts(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
-  const parts = (state.config.frameParts || []).slice().sort((a, b) => ((a as Record<string, unknown>).order as number ?? 0) - ((b as Record<string, unknown>).order as number ?? 0));
+  const parts = (state.config.frameParts || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   for (const part of parts) {
     const s   = state.overlaySettings[part.id];
     const img = state.images.frameParts[part.id];
@@ -234,7 +234,7 @@ function renderTextElements(ctx: CanvasRenderingContext2D, state: CardState, W: 
   const fns  = state.fontNames;
   const textEls = state.elements.filter(el =>
     (el.inputType === 'text' || el.inputType === 'textarea' || el.inputType === 'richtext')
-    && !(el as Record<string, unknown>).isAdmin && !(el as Record<string, unknown>).infoLinePart
+    && !el.isAdmin && !el.infoLinePart
   );
 
   for (const el of textEls) {
@@ -246,7 +246,7 @@ function renderTextElements(ctx: CanvasRenderingContext2D, state: CardState, W: 
     const y        = (s.y / 100) * H;
     const fontSize = Math.round(s.fontSize);
     const style    = s.fontStyle || 'regular';
-    const fontName = (fns as Record<string, string | null>)[style] || fns.regular;
+    const fontName = fns[style] ?? fns.regular;
 
     ctx.save();
     ctx.fillStyle    = s.color || '#ffffff';
@@ -271,7 +271,7 @@ function renderTextElements(ctx: CanvasRenderingContext2D, state: CardState, W: 
     } else {
       ctx.textAlign  = 'left';
       const baseFont = `${fontSize}px "${fontName}"`;
-      if ((el as Record<string, unknown>).hasMaxWidth) {
+      if (el.hasMaxWidth) {
         const maxPx = (s.maxWidth / 100) * W;
         const lineH = fontSize * (s.lineHeight || 1.4);
         const zone2 = (s.maxLines > 0 && s.x2 != null && s.maxWidth2 != null)
@@ -301,11 +301,11 @@ function renderInfoLines(ctx: CanvasRenderingContext2D, state: CardState, W: num
     const y        = (s.y / 100) * H;
     const fontSize = Math.round(s.fontSize);
     const style    = s.fontStyle || 'regular';
-    const fontName = (fns as Record<string, string | null>)[style] || fns.regular;
+    const fontName = fns[style] ?? fns.regular;
     const baseFont = `${fontSize}px "${fontName}"`;
 
     const parts: string[] = [];
-    for (const f of ((el as Record<string, unknown>).fields as Array<{ ref: string; prefix?: string; suffix?: string }> || [])) {
+    for (const f of (el.fields || [])) {
       const fS  = state.settings[f.ref];
       if (fS?.visible === false) continue;
       const val = state.values[f.ref] || fS?.defaultValue || '';
@@ -349,7 +349,7 @@ function renderHeroStats(ctx: CanvasRenderingContext2D, state: CardState, W: num
     const y        = (s.y / 100) * H;
     const fontSize = Math.round(s.fontSize);
     const style    = s.fontStyle || 'regular';
-    const fontName = (fns as Record<string, string | null>)[style] || fns.regular;
+    const fontName = fns[style] ?? fns.regular;
     const baseFont = `${fontSize}px "${fontName}"`;
 
     ctx.save();
@@ -425,7 +425,7 @@ function renderAdminElements(ctx: CanvasRenderingContext2D, state: CardState, W:
   }
 
   const adminTextEl = state.elements.find(e => e.id === 'adminText');
-  if (!(adminTextEl as Record<string, unknown> | undefined)?.infoLinePart) {
+  if (!adminTextEl?.infoLinePart) {
     const atS = state.settings.adminText;
     const atV = state.values.adminText || (state.config as Record<string, unknown> & { ui?: Record<string, string> }).ui?.adminTextDefault || '';
     if (atV && atS?.visible !== false) {
@@ -510,7 +510,7 @@ export const AlteredRender = {
   async mountFromApi(
     container: HTMLElement,
     apiJson: Record<string, unknown>,
-    mapping = API_MAPPING,
+    mapping: MappingDef = API_MAPPING,
     options: Partial<ResourceOptions> = {},
   ): Promise<MountResult> {
     if (Object.keys(options).length) Object.assign(store.opts, options);
