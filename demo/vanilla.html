@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Altered — Vanilla JS Demo</title>
+  <style>
+    body { background: #111; color: #eee; font-family: sans-serif; padding: 2rem; }
+    h1 { margin-bottom: 1.5rem; }
+    .controls { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; margin-bottom: 1rem; }
+    label { display: flex; align-items: center; gap: 6px; }
+    input { padding: 4px 8px; width: 280px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; }
+    select { padding: 4px 8px; background: #222; color: #eee; border: 1px solid #444; border-radius: 4px; }
+    button { padding: 6px 14px; cursor: pointer; background: #333; color: #eee; border: 1px solid #555; border-radius: 4px; }
+    button:hover { background: #444; }
+    #status { margin-top: 0.5rem; font-size: 0.9rem; min-height: 1.2em; }
+    #status.ok  { color: #6f6; }
+    #status.err { color: #f66; }
+    #card-container { margin-top: 1.5rem; width: 280px; min-height: 390px; }
+    section { margin-bottom: 3rem; }
+    h2 { margin-bottom: 1rem; font-size: 1.1rem; color: #aaa; }
+  </style>
+</head>
+<body>
+  <h1>Altered Vue — Vanilla JS Demo</h1>
+
+  <section>
+    <h2>Single card via <code>createAlteredCard</code></h2>
+    <div class="controls">
+      <label>
+        Card ref:
+        <input id="ref-input" value="ALT_COREKS_B_AX_01_C" />
+      </label>
+      <label>
+        Locale:
+        <select id="locale-input">
+          <option>en</option>
+          <option>fr</option>
+          <option>es</option>
+          <option>de</option>
+          <option>it</option>
+        </select>
+      </label>
+      <button id="render-btn">Render</button>
+    </div>
+    <div id="status"></div>
+    <div id="card-container"></div>
+  </section>
+
+  <section>
+    <h2>Multiple cards</h2>
+    <div id="cards-row" style="display:flex; gap:1rem; flex-wrap:wrap;"></div>
+  </section>
+
+  <script type="module">
+    import { createAlteredCard } from '../src/core/index.js';
+
+    const CARD_API_URL = '/altered-api/api/cards/reference/{ref}?locale={locale}';
+
+    // --- Single card ---
+    const container = document.getElementById('card-container');
+    const statusEl  = document.getElementById('status');
+
+    let card = createAlteredCard(container, { cardApiUrl: CARD_API_URL });
+
+    card.on('load',  ()    => { statusEl.textContent = 'Card rendered successfully'; statusEl.className = 'ok'; });
+    card.on('error', (err) => { statusEl.textContent = err.message; statusEl.className = 'err'; });
+
+    function render() {
+      const ref    = document.getElementById('ref-input').value.trim();
+      const locale = document.getElementById('locale-input').value;
+      statusEl.textContent = 'Loading…';
+      statusEl.className   = '';
+      card.renderFromRef(ref, locale);
+    }
+
+    document.getElementById('render-btn').addEventListener('click', render);
+    render();
+
+    // --- Multiple cards ---
+    const DEMO_CARDS = [
+      { ref: 'ALT_COREKS_B_AX_01_C', locale: 'en' },
+      { ref: 'ALT_COREKS_B_BR_01_C', locale: 'fr' },
+      { ref: 'ALT_COREKS_B_MU_01_C', locale: 'en' },
+    ];
+
+    const row = document.getElementById('cards-row');
+    DEMO_CARDS.forEach(({ ref, locale }) => {
+      const el = document.createElement('div');
+      el.style.width = '200px';
+      row.appendChild(el);
+      const c = createAlteredCard(el, { cardApiUrl: CARD_API_URL });
+      c.renderFromRef(ref, locale);
+    });
+  </script>
+</body>
+</html>

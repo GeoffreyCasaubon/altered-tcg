@@ -1,0 +1,42 @@
+import { defineConfig } from 'vite';
+import vue from '@vitejs/plugin-vue';
+import { resolve } from 'path';
+
+export default defineConfig(({ command, mode }) => {
+  const isDemo = mode === 'demo';
+
+  if (isDemo) {
+    return {
+      plugins: [vue()],
+      root: 'demo',
+      server: {
+        open: true,
+        proxy: {
+          '/altered-api': {
+            target: 'https://altered-core-cards-api.toxicity.be',
+            changeOrigin: true,
+            rewrite: (path) => path.replace(/^\/altered-api/, ''),
+          },
+        },
+      },
+    };
+  }
+
+  return {
+    plugins: [vue()],
+    build: {
+      lib: {
+        entry: resolve(__dirname, 'src/index.js'),
+        name: 'AlteredTcg',
+        fileName: 'altered-tcg',
+      },
+      rollupOptions: {
+        external: ['vue'],
+        output: {
+          globals: { vue: 'Vue' },
+          exports: 'named',
+        },
+      },
+    },
+  };
+});
