@@ -7,6 +7,7 @@
   "module": "./dist/altered-tcg.js",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/altered-tcg.js",
       "require": "./dist/altered-tcg.umd.cjs"
     }
