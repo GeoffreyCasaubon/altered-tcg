@@ -14,71 +14,44 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useAlteredCard } from '../composables/useAlteredCard';
+import type { CardJson, MappingDef } from '../core/types';
+import type { MountResult } from '../core/renderer';
 
-const props = defineProps({
-  /** Card reference, e.g. "ALT_CORE_B_AX_01_C_1" */
-  cardRef: {
-    type: String,
-    default: null,
-  },
-  /** Language code: "en" | "fr" | "es" | "de" | "it" */
-  locale: {
-    type: String,
-    default: 'en',
-  },
-  /** Forge collection key */
-  collection: {
-    type: String,
-    default: 'official',
-  },
-  /** Forge card JSON (alternative to cardRef) */
-  cardJson: {
-    type: Object,
-    default: null,
-  },
-  /** Raw Altered API JSON (alternative to cardRef) */
-  apiJson: {
-    type: Object,
-    default: null,
-  },
-  /** Custom field mapping for apiJson mode */
-  apiMapping: {
-    type: Object,
-    default: null,
-  },
-  /** CDN base URL for forge assets */
-  configBaseUrl: {
-    type: String,
-    default: null,
-  },
-  /** Card API URL template */
-  cardApiUrl: {
-    type: String,
-    default: null,
-  },
-  /** CORS proxy URL — false to disable */
-  proxyUrl: {
-    type: [String, Boolean],
-    default: false,
-  },
-  /** Card display width (any CSS value, e.g. "300px", "100%") */
-  width: {
-    type: String,
-    default: '300px',
-  },
+interface Props {
+  cardRef?: string | null;
+  locale?: string;
+  collection?: string;
+  cardJson?: CardJson | null;
+  apiJson?: Record<string, unknown> | null;
+  apiMapping?: MappingDef | null;
+  configBaseUrl?: string | null;
+  cardApiUrl?: string | null;
+  proxyUrl?: string | false;
+  width?: string;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  cardRef: null,
+  locale: 'en',
+  collection: 'official',
+  cardJson: null,
+  apiJson: null,
+  apiMapping: null,
+  configBaseUrl: null,
+  cardApiUrl: null,
+  proxyUrl: false,
+  width: '300px',
 });
 
-const emit = defineEmits({
-  /** Emitted when the card renders successfully. Payload: { canvas, state, redraw } */
-  load: null,
-  /** Emitted when rendering fails. Payload: Error */
-  error: null,
-});
+const emit = defineEmits<{
+  load: [result: MountResult | null];
+  error: [error: Error];
+}>();
 
-const containerRef = ref(null);
+const containerRef = ref<HTMLElement | null>(null);
 
 const containerStyle = computed(() => ({
   width: props.width,

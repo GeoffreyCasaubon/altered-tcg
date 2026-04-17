@@ -81,6 +81,7 @@ export function createAlteredCard(
       emit('stateChange', { loading: false, error: null });
     } catch (e) {
       const err = e instanceof Error ? e : new Error(String(e));
+      AlteredRender.mountError(container, undefined, err.message);
       emit('error', err);
       emit('stateChange', { loading: false, error: err.message });
     }

@@ -535,8 +535,11 @@ export const AlteredRender = {
     drawPlaceholderBg(ctx, W, H, ref);
   },
 
-  // silence unused param warning for drawErrorBg
-  _drawErrorBg: drawErrorBg,
+  mountError(container: HTMLElement, ref?: string, msg?: string): void {
+    const canvas = createResponsiveCanvas(container);
+    const ctx    = canvas.getContext('2d')!;
+    drawErrorBg(ctx, CARD_W, CARD_H, ref, msg);
+  },
 
   get loadedIndex() { return store.loadedIndex; },
   get fontNames()   { return { ...store.fontNames }; },
