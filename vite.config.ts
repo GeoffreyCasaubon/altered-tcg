@@ -27,7 +27,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       vue(),
-      dts({ include: ['src'], insertTypesEntry: true }),
+      dts({ include: ['src'], outDir: 'dist', entryRoot: 'src' }),
     ],
     build: {
       lib: {
