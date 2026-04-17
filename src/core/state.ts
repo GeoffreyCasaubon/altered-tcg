@@ -1,33 +1,46 @@
-export function buildStateFromJson(config, cardJson) {
-  const G    = config.globalDefaults   || {};
-  const defs = cardJson.globalDefaults || {};
-  const sel  = cardJson._selection     || {};
+import type {
+  ForgeConfig, CardJson, CardState, ElementSettings, OverlaySettings,
+  ElementDef, FactionConfig, TypeConfig, BgTransform,
+} from './types';
 
-  const factionCfg = config.factions?.[sel.faction] || {};
-  let typeCfg = factionCfg.types?.[sel.type] || null;
+export function buildStateFromJson(config: ForgeConfig, cardJson: CardJson): CardState {
+  const G    = (config.globalDefaults   || {}) as Record<string, Partial<ElementSettings>>;
+  const defs = (cardJson.globalDefaults || {}) as Record<string, Partial<ElementSettings & { value?: string; url?: string }>>;
+  const sel  = (cardJson._selection     || {}) as {
+    faction?: string;
+    collection?: string;
+    type?: string;
+    setCode?: string | null;
+    bgTransform?: Partial<BgTransform>;
+  };
+
+  const factionCfg = (config.factions?.[sel.faction ?? ''] || {}) as Partial<FactionConfig>;
+  let typeCfg: TypeConfig | null = factionCfg.types?.[sel.type ?? ''] || null;
   if (!typeCfg && sel.type?.includes('::')) {
     const [col, ftKey] = sel.type.split('::');
     typeCfg = Object.values(factionCfg.types || {}).find(
       t => t.collection === col && t.frameType === ftKey
     ) || null;
   }
-  typeCfg = typeCfg || {};
+  const resolvedTypeCfg: TypeConfig = typeCfg || {};
 
-  const ftId              = typeCfg.frameType                              || null;
-  const ftDefaults        = ftId ? (config.frameTypes?.[ftId] || {})       : {};
-  const ftFactionOverride = sel.faction ? (ftDefaults.factionOverrides?.[sel.faction] || {}) : {};
-  const frameDefs         = typeCfg.defaults                               || {};
+  const ftId              = resolvedTypeCfg.frameType                                    || null;
+  const ftDefaults        = ftId ? ((config.frameTypes?.[ftId] || {}) as Record<string, unknown>) : {} as Record<string, unknown>;
+  const ftFactionOverride = sel.faction
+    ? ((ftDefaults.factionOverrides as Record<string, Record<string, unknown>>)?.[sel.faction] || {})
+    : {} as Record<string, unknown>;
+  const frameDefs         = (resolvedTypeCfg.defaults || {}) as Record<string, Partial<ElementSettings>>;
 
-  const elements = config.elements || [];
-  const settings = {};
-  const values   = {};
+  const elements: ElementDef[] = config.elements || [];
+  const settings: Record<string, ElementSettings> = {};
+  const values: Record<string, string> = {};
 
   for (const el of elements) {
-    const g   = G[el.id]                 || {};
-    const ft  = ftDefaults?.[el.id]      || {};
-    const fto = ftFactionOverride[el.id] || {};
-    const fr  = frameDefs?.[el.id]       || {};
-    const d   = defs[el.id]              || {};
+    const g   = (G[el.id]                               || {}) as Partial<ElementSettings & { value?: string; url?: string }>;
+    const ft  = ((ftDefaults as Record<string, unknown>)[el.id] || {}) as Partial<ElementSettings>;
+    const fto = ((ftFactionOverride as Record<string, unknown>)[el.id] || {}) as Partial<ElementSettings>;
+    const fr  = (frameDefs[el.id]                       || {}) as Partial<ElementSettings>;
+    const d   = (defs[el.id]                            || {}) as Partial<ElementSettings & { value?: string; url?: string }>;
 
     settings[el.id] = {
       x:           d.x          ?? fr.x          ?? fto.x          ?? ft.x          ?? g.x          ?? 50,
@@ -69,25 +82,25 @@ export function buildStateFromJson(config, cardJson) {
     if (el.isBiome) {
       const biomeKey = el.biomeKey || el.id;
       const variant  = settings[el.id].bgVariant;
-      const biomeCfg = variant && variant !== 'none'
-        ? (config.biomeBackgrounds?.[biomeKey]?.[variant] || {})
-        : {};
-      if (biomeCfg.bgX      != null && d.bgX      == null) settings[el.id].bgX      = biomeCfg.bgX;
-      if (biomeCfg.bgY      != null && d.bgY      == null) settings[el.id].bgY      = biomeCfg.bgY;
-      if (biomeCfg.bgSize   != null && d.bgSize   == null) settings[el.id].bgSize   = biomeCfg.bgSize;
-      if (biomeCfg.bgW      != null && d.bgW      == null) settings[el.id].bgW      = biomeCfg.bgW;
-      if (biomeCfg.bgH      != null && d.bgH      == null) settings[el.id].bgH      = biomeCfg.bgH;
-      if (biomeCfg.textShadow != null && d.textShadow == null) settings[el.id].textShadow = biomeCfg.textShadow;
+      const biomeCfg = (variant && variant !== 'none')
+        ? ((config.biomeBackgrounds?.[biomeKey]?.[variant] as Record<string, unknown> | undefined) || {})
+        : {} as Record<string, unknown>;
+      if (biomeCfg.bgX      != null && d.bgX      == null) settings[el.id].bgX      = biomeCfg.bgX as number;
+      if (biomeCfg.bgY      != null && d.bgY      == null) settings[el.id].bgY      = biomeCfg.bgY as number;
+      if (biomeCfg.bgSize   != null && d.bgSize   == null) settings[el.id].bgSize   = biomeCfg.bgSize as number;
+      if (biomeCfg.bgW      != null && d.bgW      == null) settings[el.id].bgW      = biomeCfg.bgW as number;
+      if (biomeCfg.bgH      != null && d.bgH      == null) settings[el.id].bgH      = biomeCfg.bgH as number;
+      if (biomeCfg.textShadow != null && d.textShadow == null) settings[el.id].textShadow = biomeCfg.textShadow as string;
     }
   }
 
-  const overlaySettings = {};
+  const overlaySettings: Record<string, OverlaySettings> = {};
   for (const ov of (config.frameParts || [])) {
     const id   = ov.id;
-    const base = ov.default                           || {};
-    const ft   = ftDefaults?.frameParts?.[id]         || {};
-    const fto  = ftFactionOverride.frameParts?.[id]   || {};
-    const fr   = frameDefs?.frameParts?.[id]          || {};
+    const base = (ov.default || {}) as Partial<OverlaySettings>;
+    const ft   = ((ftDefaults as Record<string, unknown>).frameParts as Record<string, Partial<OverlaySettings>> | undefined)?.[id] || {} as Partial<OverlaySettings>;
+    const fto  = (ftFactionOverride.frameParts as Record<string, Partial<OverlaySettings>> | undefined)?.[id] || {} as Partial<OverlaySettings>;
+    const fr   = (frameDefs as Record<string, unknown> & { frameParts?: Record<string, Partial<OverlaySettings>> }).frameParts?.[id] || {} as Partial<OverlaySettings>;
     overlaySettings[id] = {
       visible: fr.visible ?? fto.visible ?? ft.visible ?? base.visible ?? false,
       x:       fr.x       ?? fto.x       ?? ft.x       ?? base.x       ?? 50,
@@ -96,12 +109,12 @@ export function buildStateFromJson(config, cardJson) {
     };
   }
 
-  const bgt = sel.bgTransform || {};
+  const bgt = (sel.bgTransform || {}) as Partial<BgTransform>;
 
   return {
     config,
     elements,
-    fontNames:         { regular: 'serif', bold: 'serif', italic: 'serif' },
+    fontNames:         { regular: 'serif', bold: 'serif', italic: 'serif', circled: null },
     images:            { bg: null, frame: null, logo: null, frameParts: {}, adminWatermark: null, qrLogo: null },
     biomeImages:       { forest: {}, mountain: {}, ocean: {} },
     settings,
@@ -109,7 +122,7 @@ export function buildStateFromJson(config, cardJson) {
     overlaySettings,
     bg:                { zoom: bgt.zoom ?? 100, x: bgt.x ?? 50, y: bgt.y ?? 50, flipX: bgt.flipX ?? false },
     qrSource:          null,
-    activeTypeCfg:     typeCfg,
+    activeTypeCfg:     resolvedTypeCfg,
     activeFrameTypeId: ftId,
     _qrLogoOverride:   null,
     _isAdmin:          false,

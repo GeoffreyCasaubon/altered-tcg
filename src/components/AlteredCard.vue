@@ -16,7 +16,7 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue';
-import { useAlteredCard } from '../composables/useAlteredCard.js';
+import { useAlteredCard } from '../composables/useAlteredCard';
 
 const props = defineProps({
   /** Card reference, e.g. "ALT_CORE_B_AX_01_C_1" */

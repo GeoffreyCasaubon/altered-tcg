@@ -1,9 +1,11 @@
+import type { ResourceOptions, PlaceholderConfig } from './types';
+
 // ── Card canvas dimensions ──────────────────────────────────────
 export const CARD_W = 744;
 export const CARD_H = 1039;
 
 // ── Default resource locations ──────────────────────────────────
-export const RESOURCES = {
+export const RESOURCES: ResourceOptions = {
   configBaseUrl:             'https://cdn.alteredcore.org/forge/',
   configIndex:               'config/index.json',
   alteredIconsCss:           'assets/fonts/alteredicons.css',
@@ -22,8 +24,8 @@ export const FACTION_COLLECTION  = {};
 export const RARITY_ASSET_INDEX  = { COMMON: 0, RARE: 1, UNIQUE: 2 };
 
 // ── Placeholder / error display ─────────────────────────────────
-export const LOADING = { text: 'Loading…\n{ref}', x: 50, y: 70, color: 'rgb(255,255,255)', fontSize: 5.5 };
-export const ERROR   = { text: 'Error\n{msg}\n{ref}', x: 50, y: 50, color: '#e06060',     fontSize: 5.5 };
+export const LOADING: PlaceholderConfig = { text: 'Loading…\n{ref}', x: 50, y: 70, color: 'rgb(255,255,255)', fontSize: 5.5 };
+export const ERROR: PlaceholderConfig   = { text: 'Error\n{msg}\n{ref}', x: 50, y: 50, color: '#e06060',     fontSize: 5.5 };
 
 // ── Biome variant auto-detection ─────────────────────────────────
 // Maps biome element IDs to the API field holding the numeric value.

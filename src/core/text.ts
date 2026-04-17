@@ -1,13 +1,14 @@
-import { isPUA, isCircledNumber, normalizeColor } from './utils.js';
+import { isPUA, isCircledNumber, normalizeColor } from './utils';
+import type { FontNames, TextRun, TextSegment, Zone2 } from './types';
 
-// WeakMap cache: cfg → { codepoint → label }
-const _iconLabelCache = new WeakMap();
+const _iconLabelCache = new WeakMap<Record<string, unknown>, Record<number, string>>();
 
-export function iconLabel(cfg, cp) {
+export function iconLabel(cfg: Record<string, unknown> | null | undefined, cp: number): string {
+  if (!cfg) return cp.toString(16);
   let map = _iconLabelCache.get(cfg);
   if (!map) {
     map = {};
-    for (const [label, hex] of Object.entries(cfg?.alteredIconsTokens ?? {})) {
+    for (const [label, hex] of Object.entries((cfg.alteredIconsTokens as Record<string, string>) ?? {})) {
       if (!label.startsWith('_')) map[parseInt(hex, 16)] = label;
     }
     _iconLabelCache.set(cfg, map);
@@ -15,17 +16,24 @@ export function iconLabel(cfg, cp) {
   return map[cp] ?? cp.toString(16);
 }
 
-export function circledScale(cfg, text) {
-  const base = cfg?.circledNumberScale ?? 1.0;
+export function circledScale(cfg: Record<string, unknown> | null | undefined, text: string): number {
+  const base = (cfg?.circledNumberScale as number) ?? 1.0;
   if (text?.codePointAt(0) === 0x24FF) return base * 0.64;
   return base;
 }
 
-export function segFont(cfg, fontNames, isIcon, baseFont, isCircled = false, text = '') {
+export function segFont(
+  cfg: Record<string, unknown> | null | undefined,
+  fontNames: FontNames | null | undefined,
+  isIcon: boolean,
+  baseFont: string,
+  isCircled = false,
+  text = '',
+): string {
   if (isIcon) {
-    const key      = iconLabel(cfg, text.codePointAt(0));
-    const perScale = cfg?.alteredIconsSizes?.[key] ?? 1.0;
-    const newSize  = Math.round(parseFloat(baseFont) * (cfg?.alteredIconsScale ?? 1.0) * perScale);
+    const key      = iconLabel(cfg, text.codePointAt(0)!);
+    const perScale = (cfg?.alteredIconsSizes as Record<string, number> | undefined)?.[key] ?? 1.0;
+    const newSize  = Math.round(parseFloat(baseFont) * ((cfg?.alteredIconsScale as number) ?? 1.0) * perScale);
     return `${newSize}px "Font Awesome Kit"`;
   }
   if (isCircled) {
@@ -37,11 +45,11 @@ export function segFont(cfg, fontNames, isIcon, baseFont, isCircled = false, tex
   return baseFont;
 }
 
-export function tokenizeMixed(text) {
-  const segs = [];
+export function tokenizeMixed(text: string): TextSegment[] {
+  const segs: TextSegment[] = [];
   let buf = '', bufIcon = false, bufCircled = false;
   for (const ch of text) {
-    const cp        = ch.codePointAt(0);
+    const cp        = ch.codePointAt(0)!;
     const isIcon    = isPUA(cp);
     const isCircled = !isIcon && isCircledNumber(cp);
     if (isIcon !== bufIcon || isCircled !== bufCircled) {
@@ -55,7 +63,13 @@ export function tokenizeMixed(text) {
   return segs;
 }
 
-export function measureMixed(ctx, cfg, fontNames, text, baseFont) {
+export function measureMixed(
+  ctx: CanvasRenderingContext2D,
+  cfg: Record<string, unknown> | null | undefined,
+  fontNames: FontNames | null | undefined,
+  text: string,
+  baseFont: string,
+): number {
   let w = 0;
   for (const s of tokenizeMixed(text)) {
     ctx.font = segFont(cfg, fontNames, s.isIcon, baseFont, s.isCircled, s.text);
@@ -64,7 +78,15 @@ export function measureMixed(ctx, cfg, fontNames, text, baseFont) {
   return w;
 }
 
-export function drawMixedLine(ctx, cfg, fontNames, text, x, y, baseFont) {
+export function drawMixedLine(
+  ctx: CanvasRenderingContext2D,
+  cfg: Record<string, unknown> | null | undefined,
+  fontNames: FontNames | null | undefined,
+  text: string,
+  x: number,
+  y: number,
+  baseFont: string,
+): void {
   let cx = x;
   for (const s of tokenizeMixed(text)) {
     ctx.font = segFont(cfg, fontNames, s.isIcon, baseFont, s.isCircled, s.text);
@@ -73,8 +95,18 @@ export function drawMixedLine(ctx, cfg, fontNames, text, x, y, baseFont) {
   }
 }
 
-// zone2 = { fromLine, x, maxWidth } — optional second zone after N lines
-export function drawWrappedText(ctx, cfg, fontNames, text, x, y, maxWidth, lineHeight, baseFont, zone2 = null) {
+export function drawWrappedText(
+  ctx: CanvasRenderingContext2D,
+  cfg: Record<string, unknown> | null | undefined,
+  fontNames: FontNames | null | undefined,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  baseFont: string,
+  zone2: Zone2 | null = null,
+): void {
   const paragraphs = text.split('\n');
   let curY = y, lineCount = 0;
   let curX = x, curMaxWidth = maxWidth;
@@ -83,7 +115,8 @@ export function drawWrappedText(ctx, cfg, fontNames, text, x, y, maxWidth, lineH
     if (!para.trim()) { curY += lineHeight * 0.5; continue; }
 
     const rawSegs = tokenizeMixed(para);
-    const tokens  = [];
+    type Token = { text: string; isIcon: boolean; isCircled: boolean; w: number };
+    const tokens: Token[] = [];
     for (const seg of rawSegs) {
       if (seg.isIcon) {
         for (const ch of seg.text) {
@@ -104,12 +137,12 @@ export function drawWrappedText(ctx, cfg, fontNames, text, x, y, maxWidth, lineH
       }
     }
 
-    let lineToks = [], lineW = 0;
+    let lineToks: Token[] = [], lineW = 0;
 
     const flushLine = () => {
       while (lineToks.length && !lineToks[0].isIcon && !lineToks[0].text.trim()) lineToks.shift();
       while (lineToks.length && !lineToks[lineToks.length - 1].isIcon && !lineToks[lineToks.length - 1].text.trim()) lineToks.pop();
-      const iconOffsetY = cfg?.alteredIconsOffsetY ?? 0;
+      const iconOffsetY = (cfg?.alteredIconsOffsetY as number) ?? 0;
       let cx = curX;
       for (const t of lineToks) {
         ctx.font = segFont(cfg, fontNames, t.isIcon, baseFont, t.isCircled, t.text);
@@ -130,13 +163,13 @@ export function drawWrappedText(ctx, cfg, fontNames, text, x, y, maxWidth, lineH
   }
 }
 
-export function htmlToRuns(html) {
+export function htmlToRuns(html: string): TextRun[] {
   const div = document.createElement('div');
   div.innerHTML = html || '';
-  const runs = [];
+  const runs: TextRun[] = [];
   let firstBlock = true;
 
-  function mergeOrPush(text, bold, italic, underline, strike, isIcon, color, fontScale) {
+  function mergeOrPush(text: string, bold: boolean, italic: boolean, underline: boolean, strike: boolean, isIcon: boolean, color: string | null, fontScale: number) {
     const last = runs[runs.length - 1];
     if (!isIcon && last && !last.isIcon &&
         last.bold === bold && last.italic === italic &&
@@ -148,21 +181,22 @@ export function htmlToRuns(html) {
     }
   }
 
-  function walk(node, bold, italic, underline, strike, color, fontScale) {
+  function walk(node: Node, bold: boolean, italic: boolean, underline: boolean, strike: boolean, color: string | null, fontScale: number) {
     if (node.nodeType === 3) {
       const text = node.textContent;
       if (!text) return;
       for (const ch of text) {
-        const isIcon = isPUA(ch.codePointAt(0));
+        const isIcon = isPUA(ch.codePointAt(0)!);
         mergeOrPush(ch, bold, italic, underline, strike, isIcon, color, fontScale);
       }
       return;
     }
     if (node.nodeType !== 1) return;
-    const tag = node.tagName.toUpperCase();
+    const el  = node as Element;
+    const tag = el.tagName.toUpperCase();
 
-    if (node.classList?.contains('altered-icon-span')) {
-      const hex = node.dataset.unicode;
+    if (el.classList?.contains('altered-icon-span')) {
+      const hex = (el as HTMLElement).dataset?.unicode;
       if (hex) runs.push({ text: String.fromCodePoint(parseInt(hex, 16)), bold, italic, underline, strike, isIcon: true, color, fontScale });
       return;
     }
@@ -190,16 +224,17 @@ export function htmlToRuns(html) {
     if (tag === 'I' || tag === 'EM')     it = true;
     if (tag === 'U')                     u  = true;
     if (['S', 'STRIKE', 'DEL'].includes(tag)) s = true;
-    if (tag === 'FONT' && node.color) c = normalizeColor(node.color) || c;
-    if (node.style) {
-      if (node.style.fontWeight === 'bold')   b  = true;
-      if (node.style.fontStyle  === 'italic') it = true;
-      const td = node.style.textDecorationLine || node.style.textDecoration;
+    if (tag === 'FONT' && (el as HTMLFontElement).color) c = normalizeColor((el as HTMLFontElement).color) || c;
+    const htmlEl = el as HTMLElement;
+    if (htmlEl.style) {
+      if (htmlEl.style.fontWeight === 'bold')   b  = true;
+      if (htmlEl.style.fontStyle  === 'italic') it = true;
+      const td = htmlEl.style.textDecorationLine || htmlEl.style.textDecoration;
       if (td?.includes('underline'))    u = true;
       if (td?.includes('line-through')) s = true;
-      if (node.style.color) c = normalizeColor(node.style.color) || c;
-      if (node.style.fontSize) {
-        const m = node.style.fontSize.match(/^([0-9.]+)em$/);
+      if (htmlEl.style.color) c = normalizeColor(htmlEl.style.color) || c;
+      if (htmlEl.style.fontSize) {
+        const m = htmlEl.style.fontSize.match(/^([0-9.]+)em$/);
         if (m) fs = fontScale * parseFloat(m[1]);
       }
     }
@@ -210,20 +245,32 @@ export function htmlToRuns(html) {
   return runs.filter(r => r.text !== '');
 }
 
-// zone2 = { fromLine, x, maxWidth }
-export function drawRichText(ctx, cfg, runs, x, y, maxWidth, lineHeight, fontSize, color, fontNames, zone2 = null) {
-  const getFontName = (bold, italic) => {
+export function drawRichText(
+  ctx: CanvasRenderingContext2D,
+  cfg: Record<string, unknown> | null | undefined,
+  runs: TextRun[],
+  x: number,
+  y: number,
+  maxWidth: number,
+  lineHeight: number,
+  fontSize: number,
+  color: string,
+  fontNames: FontNames,
+  zone2: Zone2 | null = null,
+): void {
+  const getFontName = (bold: boolean, italic: boolean): string => {
     if (bold)   return fontNames.bold   || fontNames.regular;
     if (italic) return fontNames.italic || fontNames.regular;
     return fontNames.regular;
   };
 
-  const _iconScale = ch => {
-    const key = iconLabel(cfg, ch.codePointAt(0));
-    return cfg?.alteredIconsSizes?.[key] ?? 1.0;
+  const _iconScale = (ch: string): number => {
+    const key = iconLabel(cfg, ch.codePointAt(0)!);
+    return (cfg?.alteredIconsSizes as Record<string, number> | undefined)?.[key] ?? 1.0;
   };
 
-  const tokens = [];
+  type RichToken = TextRun & { isCircled: boolean; isNewline?: boolean };
+  const tokens: RichToken[] = [];
   for (const run of runs) {
     const fs = run.fontScale ?? 1.0;
     if (run.isIcon) { tokens.push({ ...run, isCircled: false, fontScale: fs }); continue; }
@@ -249,30 +296,30 @@ export function drawRichText(ctx, cfg, runs, x, y, maxWidth, lineHeight, fontSiz
     }
   }
 
-  const measureTok = tok => {
+  const measureTok = (tok: RichToken): number => {
     if (tok.isNewline) return 0;
     const fn   = tok.isIcon ? 'Font Awesome Kit' : getFontName(tok.bold, tok.italic);
     const fs   = tok.fontScale ?? 1.0;
-    const size = tok.isIcon    ? Math.round(fontSize * fs * (cfg?.alteredIconsScale ?? 1.0) * _iconScale(tok.text))
+    const size = tok.isIcon    ? Math.round(fontSize * fs * ((cfg?.alteredIconsScale as number) ?? 1.0) * _iconScale(tok.text))
                : tok.isCircled ? Math.round(fontSize * fs * circledScale(cfg, tok.text))
                : Math.round(fontSize * fs);
     ctx.font = `${size}px "${fn}"`;
     return ctx.measureText(tok.text).width;
   };
 
-  let lineTokens = [], lineWidth = 0, curY = y;
+  let lineTokens: RichToken[] = [], lineWidth = 0, curY = y;
   let lineCount = 0, curX = x, curMaxWidth = maxWidth;
 
   const flushLine = () => {
     while (lineTokens.length && !lineTokens[lineTokens.length - 1].isIcon && lineTokens[lineTokens.length - 1].text.trim() === '') lineTokens.pop();
     let cx = curX;
     ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
-    const iconOffsetY = cfg?.alteredIconsOffsetY ?? 0;
+    const iconOffsetY = (cfg?.alteredIconsOffsetY as number) ?? 0;
     for (const tok of lineTokens) {
       if (tok.isNewline) continue;
       const fn   = tok.isIcon ? 'Font Awesome Kit' : getFontName(tok.bold, tok.italic);
       const fs   = tok.fontScale ?? 1.0;
-      const size = tok.isIcon    ? Math.round(fontSize * fs * (cfg?.alteredIconsScale ?? 1.0) * _iconScale(tok.text))
+      const size = tok.isIcon    ? Math.round(fontSize * fs * ((cfg?.alteredIconsScale as number) ?? 1.0) * _iconScale(tok.text))
                  : tok.isCircled ? Math.round(fontSize * fs * circledScale(cfg, tok.text))
                  : Math.round(fontSize * fs);
       ctx.font      = `${size}px "${fn}"`;
@@ -304,7 +351,7 @@ export function drawRichText(ctx, cfg, runs, x, y, maxWidth, lineHeight, fontSiz
   if (lineTokens.length) flushLine();
 }
 
-export function drawRoundedRect(ctx, x, y, w, h, r) {
+export function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number): void {
   r = Math.min(r, w / 2, h / 2);
   ctx.beginPath();
   ctx.moveTo(x + r, y);

@@ -1,8 +1,9 @@
+/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { resolve } from 'path';
 
-export default defineConfig(({ command, mode }) => {
+export default defineConfig(({ mode }) => {
   const isDemo = mode === 'demo';
 
   if (isDemo) {
@@ -26,7 +27,7 @@ export default defineConfig(({ command, mode }) => {
     plugins: [vue()],
     build: {
       lib: {
-        entry: resolve(__dirname, 'src/index.js'),
+        entry: resolve(__dirname, 'src/index.ts'),
         name: 'AlteredTcg',
         fileName: 'altered-tcg',
       },
@@ -37,6 +38,10 @@ export default defineConfig(({ command, mode }) => {
           exports: 'named',
         },
       },
+    },
+    test: {
+      environment: 'happy-dom',
+      include: ['src/**/*.test.ts'],
     },
   };
 });

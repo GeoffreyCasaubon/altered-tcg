@@ -1,18 +1,19 @@
-import { CARD_W, CARD_H, LOADING, ERROR } from './constants.js';
-import { deepMerge, matchCardsData } from './utils.js';
-import { store, ensureConfig, ensureBiomeImages } from './loader.js';
-import { buildStateFromJson } from './state.js';
-import { loadCardAssets } from './assets.js';
-import { apiToCardJson, API_MAPPING } from './mapping.js';
+import { CARD_W, CARD_H, LOADING, ERROR } from './constants';
+import { deepMerge, matchCardsData } from './utils';
+import { store, ensureConfig, ensureBiomeImages } from './loader';
+import { buildStateFromJson } from './state';
+import { loadCardAssets } from './assets';
+import { apiToCardJson, API_MAPPING } from './mapping';
 import {
   htmlToRuns, drawRichText, drawWrappedText,
   drawMixedLine, measureMixed, drawRoundedRect,
-} from './text.js';
+} from './text';
+import type { CardState, CardJson, ResourceOptions, ForgeConfig } from './types';
 
 
 // ── Responsive canvas ─────────────────────────────────────────
 
-function createResponsiveCanvas(container) {
+function createResponsiveCanvas(container: HTMLElement): HTMLCanvasElement {
   container.innerHTML = '';
   container.style.position = 'relative';
 
@@ -37,7 +38,7 @@ function createResponsiveCanvas(container) {
 
 // ── Placeholder / error background helpers ────────────────────
 
-function drawCardBg(ctx, W, H, placeholderImg) {
+function drawCardBg(ctx: CanvasRenderingContext2D, W: number, H: number, placeholderImg: HTMLImageElement | null): void {
   if (placeholderImg) {
     const sc = Math.max(W / placeholderImg.naturalWidth, H / placeholderImg.naturalHeight);
     const dw = placeholderImg.naturalWidth  * sc;
@@ -59,7 +60,16 @@ function drawCardBg(ctx, W, H, placeholderImg) {
   }
 }
 
-function drawCardLabel(ctx, W, H, template, x, y, color, fontSizePct, ref, msg) {
+function drawCardLabel(
+  ctx: CanvasRenderingContext2D,
+  W: number, H: number,
+  template: string | undefined,
+  x: number, y: number,
+  color: string,
+  fontSizePct: number,
+  ref?: string,
+  msg?: string,
+): void {
   if (!template) return;
   const text     = template.replace(/\{ref\}/g, ref || '').replace(/\{msg\}/g, msg || '');
   const lines    = text.split('\n');
@@ -81,12 +91,12 @@ function drawCardLabel(ctx, W, H, template, x, y, color, fontSizePct, ref, msg) 
   ctx.restore();
 }
 
-function drawPlaceholderBg(ctx, W, H, ref) {
+function drawPlaceholderBg(ctx: CanvasRenderingContext2D, W: number, H: number, ref?: string): void {
   drawCardBg(ctx, W, H, store.placeholderImg);
   drawCardLabel(ctx, W, H, LOADING.text, LOADING.x, LOADING.y, LOADING.color, LOADING.fontSize, ref);
 }
 
-function drawErrorBg(ctx, W, H, ref, msg) {
+function drawErrorBg(ctx: CanvasRenderingContext2D, W: number, H: number, ref?: string, msg?: string): void {
   drawCardBg(ctx, W, H, store.placeholderImg);
   drawCardLabel(ctx, W, H, ERROR.text, ERROR.x, ERROR.y, ERROR.color, ERROR.fontSize, ref, msg);
 }
@@ -94,7 +104,7 @@ function drawErrorBg(ctx, W, H, ref, msg) {
 
 // ── Render steps ──────────────────────────────────────────────
 
-function renderBackground(ctx, state, W, H) {
+function renderBackground(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
   if (state.images.bg) {
     const img  = state.images.bg;
     const zoom = (state.bg.zoom || 100) / 100;
@@ -119,9 +129,9 @@ function renderBackground(ctx, state, W, H) {
   }
 }
 
-function renderBlackBleedBorder(ctx, state, W, H) {
-  const isBlackBleed = state.activeTypeCfg?.blackBleed ||
-    state.config.frameTypes?.[state.activeFrameTypeId]?.blackBleed;
+function renderBlackBleedBorder(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
+  const isBlackBleed = (state.activeTypeCfg as Record<string, unknown>)?.blackBleed ||
+    (state.config.frameTypes?.[state.activeFrameTypeId ?? ''] as Record<string, unknown> | undefined)?.blackBleed;
   if (!isBlackBleed) return;
   const INSET = 2;
   ctx.fillStyle = '#000000';
@@ -131,16 +141,16 @@ function renderBlackBleedBorder(ctx, state, W, H) {
   ctx.fillRect(W - INSET, INSET, INSET, H - 2 * INSET);
 }
 
-function renderBiomeBadges(ctx, state, W, H) {
+function renderBiomeBadges(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
   for (const el of state.elements.filter(e => e.isBiome)) {
     const s = state.settings[el.id];
     if (!s.visible || !s.bgVariant || s.bgVariant === 'none') continue;
-    const biomeKey = el.biomeKey || el.id;
+    const biomeKey = (el.biomeKey || el.id) as keyof typeof state.biomeImages;
     const img      = state.biomeImages?.[biomeKey]?.[s.bgVariant];
     if (!img) continue;
     const cx = ((s.bgX ?? s.x) / 100) * W;
     const cy = ((s.bgY ?? s.y) / 100) * H;
-    let dw, dh;
+    let dw: number, dh: number;
     if (s.bgW > 0 && s.bgH > 0) {
       dw = (s.bgW / 100) * W;
       dh = (s.bgH / 100) * H;
@@ -153,12 +163,12 @@ function renderBiomeBadges(ctx, state, W, H) {
   }
 }
 
-function renderFrame(ctx, state, W, H) {
+function renderFrame(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
   if (state.images.frame) ctx.drawImage(state.images.frame, 0, 0, W, H);
 }
 
-function renderFrameParts(ctx, state, W, H) {
-  const parts = (state.config.frameParts || []).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+function renderFrameParts(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
+  const parts = (state.config.frameParts || []).slice().sort((a, b) => ((a as Record<string, unknown>).order as number ?? 0) - ((b as Record<string, unknown>).order as number ?? 0));
   for (const part of parts) {
     const s   = state.overlaySettings[part.id];
     const img = state.images.frameParts[part.id];
@@ -171,7 +181,7 @@ function renderFrameParts(ctx, state, W, H) {
   }
 }
 
-function renderSetLogo(ctx, state, W, H) {
+function renderSetLogo(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
   if (!state.images.logo || !state.settings.setLogo?.visible) return;
   const s    = state.settings.setLogo;
   const img  = state.images.logo;
@@ -188,7 +198,7 @@ function renderSetLogo(ctx, state, W, H) {
   const drawH  = imgH * scale;
   const off    = document.createElement('canvas');
   off.width    = imgW; off.height = imgH;
-  const oCtx   = off.getContext('2d');
+  const oCtx   = off.getContext('2d')!;
   oCtx.drawImage(img, 0, 0, imgW, imgH);
   oCtx.globalCompositeOperation = 'source-atop';
   oCtx.fillStyle = s.color || '#ffffff';
@@ -196,15 +206,15 @@ function renderSetLogo(ctx, state, W, H) {
   ctx.drawImage(off, cx - drawW / 2, cy - drawH / 2, drawW, drawH);
 }
 
-function renderQR(ctx, state, W, H) {
+function renderQR(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
   if (!state.qrSource || !state.settings.qrCode?.visible) return;
   const s    = state.settings.qrCode;
   const size = (s.size / 100) * W;
   const x    = (s.x   / 100) * W;
   const y    = (s.y   / 100) * H;
   try {
-    ctx.drawImage(state.qrSource, x - size / 2, y - size / 2, size, size);
-    const qrCfg  = state.config.qrLogo || {};
+    ctx.drawImage(state.qrSource as CanvasImageSource, x - size / 2, y - size / 2, size, size);
+    const qrCfg  = (state.config.qrLogo || {}) as { enabled?: boolean; logoRatio?: number };
     const qrLogo = state._qrLogoOverride || (qrCfg.enabled ? state.images.qrLogo : null);
     if (qrLogo) {
       const logoRatio = Math.min(qrCfg.logoRatio ?? 0.22, 0.25);
@@ -219,12 +229,12 @@ function renderQR(ctx, state, W, H) {
   } catch { /* source not ready */ }
 }
 
-function renderTextElements(ctx, state, W, H) {
-  const cfg  = state.config;
+function renderTextElements(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
+  const cfg  = state.config as unknown as Record<string, unknown>;
   const fns  = state.fontNames;
   const textEls = state.elements.filter(el =>
     (el.inputType === 'text' || el.inputType === 'textarea' || el.inputType === 'richtext')
-    && !el.isAdmin && !el.infoLinePart
+    && !(el as Record<string, unknown>).isAdmin && !(el as Record<string, unknown>).infoLinePart
   );
 
   for (const el of textEls) {
@@ -236,17 +246,18 @@ function renderTextElements(ctx, state, W, H) {
     const y        = (s.y / 100) * H;
     const fontSize = Math.round(s.fontSize);
     const style    = s.fontStyle || 'regular';
-    const fontName = fns[style] || fns.regular;
+    const fontName = (fns as Record<string, string | null>)[style] || fns.regular;
 
     ctx.save();
     ctx.fillStyle    = s.color || '#ffffff';
     ctx.textBaseline = 'middle';
 
     if (s.textShadow) {
-      ctx.shadowColor   = s.textShadow.color   ?? 'transparent';
-      ctx.shadowBlur    = s.textShadow.blur     ?? 0;
-      ctx.shadowOffsetX = s.textShadow.offsetX  ?? 0;
-      ctx.shadowOffsetY = s.textShadow.offsetY  ?? 0;
+      const ts = s.textShadow as unknown as Record<string, unknown>;
+      ctx.shadowColor   = (ts.color   as string) ?? 'transparent';
+      ctx.shadowBlur    = (ts.blur    as number) ?? 0;
+      ctx.shadowOffsetX = (ts.offsetX as number) ?? 0;
+      ctx.shadowOffsetY = (ts.offsetY as number) ?? 0;
     }
 
     if (el.inputType === 'richtext') {
@@ -260,7 +271,7 @@ function renderTextElements(ctx, state, W, H) {
     } else {
       ctx.textAlign  = 'left';
       const baseFont = `${fontSize}px "${fontName}"`;
-      if (el.hasMaxWidth) {
+      if ((el as Record<string, unknown>).hasMaxWidth) {
         const maxPx = (s.maxWidth / 100) * W;
         const lineH = fontSize * (s.lineHeight || 1.4);
         const zone2 = (s.maxLines > 0 && s.x2 != null && s.maxWidth2 != null)
@@ -279,8 +290,8 @@ function renderTextElements(ctx, state, W, H) {
   }
 }
 
-function renderInfoLines(ctx, state, W, H) {
-  const cfg = state.config;
+function renderInfoLines(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
+  const cfg = state.config as unknown as Record<string, unknown>;
   const fns = state.fontNames;
 
   for (const el of state.elements.filter(e => e.inputType === 'infoLine')) {
@@ -290,11 +301,11 @@ function renderInfoLines(ctx, state, W, H) {
     const y        = (s.y / 100) * H;
     const fontSize = Math.round(s.fontSize);
     const style    = s.fontStyle || 'regular';
-    const fontName = fns[style] || fns.regular;
+    const fontName = (fns as Record<string, string | null>)[style] || fns.regular;
     const baseFont = `${fontSize}px "${fontName}"`;
 
-    const parts = [];
-    for (const f of (el.fields || [])) {
+    const parts: string[] = [];
+    for (const f of ((el as Record<string, unknown>).fields as Array<{ ref: string; prefix?: string; suffix?: string }> || [])) {
       const fS  = state.settings[f.ref];
       if (fS?.visible === false) continue;
       const val = state.values[f.ref] || fS?.defaultValue || '';
@@ -308,10 +319,11 @@ function renderInfoLines(ctx, state, W, H) {
     ctx.textBaseline = 'middle';
     ctx.textAlign    = 'left';
     if (s.textShadow) {
-      ctx.shadowColor   = s.textShadow.color   ?? 'transparent';
-      ctx.shadowBlur    = s.textShadow.blur     ?? 0;
-      ctx.shadowOffsetX = s.textShadow.offsetX  ?? 0;
-      ctx.shadowOffsetY = s.textShadow.offsetY  ?? 0;
+      const ts = s.textShadow as unknown as Record<string, unknown>;
+      ctx.shadowColor   = (ts.color   as string) ?? 'transparent';
+      ctx.shadowBlur    = (ts.blur    as number) ?? 0;
+      ctx.shadowOffsetX = (ts.offsetX as number) ?? 0;
+      ctx.shadowOffsetY = (ts.offsetY as number) ?? 0;
     }
     if (s.align === 'center') {
       drawMixedLine(ctx, cfg, fns, fullText, x - measureMixed(ctx, cfg, fns, fullText, baseFont) / 2, y, baseFont);
@@ -324,8 +336,8 @@ function renderInfoLines(ctx, state, W, H) {
   }
 }
 
-function renderHeroStats(ctx, state, W, H) {
-  const cfg = state.config;
+function renderHeroStats(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
+  const cfg = state.config as unknown as Record<string, unknown>;
   const fns = state.fontNames;
 
   for (const el of state.elements.filter(e => e.inputType === 'herostat')) {
@@ -337,7 +349,7 @@ function renderHeroStats(ctx, state, W, H) {
     const y        = (s.y / 100) * H;
     const fontSize = Math.round(s.fontSize);
     const style    = s.fontStyle || 'regular';
-    const fontName = fns[style] || fns.regular;
+    const fontName = (fns as Record<string, string | null>)[style] || fns.regular;
     const baseFont = `${fontSize}px "${fontName}"`;
 
     ctx.save();
@@ -367,9 +379,9 @@ function renderHeroStats(ctx, state, W, H) {
   }
 }
 
-function renderSvgImages(ctx, state, W, H) {
+function renderSvgImages(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
   for (const el of state.elements.filter(e => e.inputType === 'svgimage')) {
-    const img = state.images[el.id];
+    const img = state.images[el.id] as HTMLImageElement | null;
     const s   = state.settings[el.id];
     if (!img || s?.visible === false) continue;
     const cx  = ((s?.x    ?? 50) / 100) * W;
@@ -380,9 +392,9 @@ function renderSvgImages(ctx, state, W, H) {
   }
 }
 
-function renderStamps(ctx, state, W, H) {
+function renderStamps(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
   for (const el of state.elements.filter(e => e.inputType === 'stamp')) {
-    const img = state.images[el.id];
+    const img = state.images[el.id] as HTMLImageElement | null;
     const s   = state.settings[el.id];
     if (!img || s?.visible === false) continue;
     const cx  = ((s?.x    ?? 50) / 100) * W;
@@ -396,10 +408,9 @@ function renderStamps(ctx, state, W, H) {
   }
 }
 
-function renderAdminElements(ctx, state, W, H) {
+function renderAdminElements(ctx: CanvasRenderingContext2D, state: CardState, W: number, H: number): void {
   const fns = state.fontNames;
 
-  // Admin watermark image
   const wm  = state.images.adminWatermark;
   const wmS = state.settings.adminWatermark;
   if (wm && wmS?.visible !== false) {
@@ -413,11 +424,10 @@ function renderAdminElements(ctx, state, W, H) {
     ctx.restore();
   }
 
-  // Admin text (skip if part of an infoLine composite)
   const adminTextEl = state.elements.find(e => e.id === 'adminText');
-  if (!adminTextEl?.infoLinePart) {
+  if (!(adminTextEl as Record<string, unknown> | undefined)?.infoLinePart) {
     const atS = state.settings.adminText;
-    const atV = state.values.adminText || state.config.ui?.adminTextDefault || '';
+    const atV = state.values.adminText || (state.config as Record<string, unknown> & { ui?: Record<string, string> }).ui?.adminTextDefault || '';
     if (atV && atS?.visible !== false) {
       const ax  = ((atS?.x ?? 50) / 100) * W;
       const ay  = ((atS?.y ?? 98) / 100) * H;
@@ -437,7 +447,7 @@ function renderAdminElements(ctx, state, W, H) {
 
 // ── Main render pipeline ──────────────────────────────────────
 
-export function renderCard(state, canvas, ctx) {
+export function renderCard(state: CardState, _canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): void {
   const W = CARD_W, H = CARD_H;
   ctx.clearRect(0, 0, W, H);
   renderBackground(ctx, state, W, H);
@@ -455,30 +465,35 @@ export function renderCard(state, canvas, ctx) {
   renderAdminElements(ctx, state, W, H);
 }
 
+export interface MountResult {
+  canvas: HTMLCanvasElement;
+  state: CardState;
+  redraw(): void;
+}
 
 // ── Public API ────────────────────────────────────────────────
 
 export const AlteredRender = {
 
-  async init(options = {}) {
+  async init(options: Partial<ResourceOptions> = {}): Promise<ForgeConfig> {
     Object.assign(store.opts, options);
     store.cfg         = await ensureConfig();
     store.biomeImages = await ensureBiomeImages();
     return store.cfg;
   },
 
-  async mount(container, cardJson, options = {}) {
+  async mount(container: HTMLElement, cardJson: CardJson, options: Partial<ResourceOptions> = {}): Promise<MountResult> {
     if (Object.keys(options).length) Object.assign(store.opts, options);
 
     store.cfg         = await ensureConfig();
     store.biomeImages = await ensureBiomeImages();
 
     const canvas = createResponsiveCanvas(container);
-    const ctx    = canvas.getContext('2d');
+    const ctx    = canvas.getContext('2d')!;
 
     const state = buildStateFromJson(store.cfg, cardJson);
     state.fontNames   = { ...store.fontNames };
-    state.biomeImages = store.biomeImages;
+    state.biomeImages = store.biomeImages!;
 
     drawPlaceholderBg(ctx, CARD_W, CARD_H, cardJson._ref);
 
@@ -492,28 +507,36 @@ export const AlteredRender = {
     };
   },
 
-  async mountFromApi(container, apiJson, mapping = API_MAPPING, options = {}) {
+  async mountFromApi(
+    container: HTMLElement,
+    apiJson: Record<string, unknown>,
+    mapping = API_MAPPING,
+    options: Partial<ResourceOptions> = {},
+  ): Promise<MountResult> {
     if (Object.keys(options).length) Object.assign(store.opts, options);
 
     store.cfg         = await ensureConfig();
     store.biomeImages = await ensureBiomeImages();
 
-    const cardsOverride = matchCardsData(apiJson.reference, store.cfg.cardsData);
+    const cardsOverride = matchCardsData(apiJson.reference as string, store.cfg.cardsData as Record<string, Record<string, unknown>> | undefined);
     if (cardsOverride) {
-      apiJson = { ...apiJson, forge: deepMerge(apiJson.forge || {}, cardsOverride) };
+      apiJson = { ...apiJson, forge: deepMerge((apiJson.forge || {}) as Record<string, unknown>, cardsOverride) };
     }
 
-    const cardJson = apiToCardJson(apiJson, mapping);
+    const cardJson = apiToCardJson(apiJson, mapping) as CardJson;
     return this.mount(container, cardJson);
   },
 
-  _renderCard(state, canvas, ctx) {
+  _renderCard(state: CardState, canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D): void {
     renderCard(state, canvas, ctx);
   },
 
-  _drawPlaceholderBg(ctx, W, H, ref) {
+  _drawPlaceholderBg(ctx: CanvasRenderingContext2D, W: number, H: number, ref?: string): void {
     drawPlaceholderBg(ctx, W, H, ref);
   },
+
+  // silence unused param warning for drawErrorBg
+  _drawErrorBg: drawErrorBg,
 
   get loadedIndex() { return store.loadedIndex; },
   get fontNames()   { return { ...store.fontNames }; },

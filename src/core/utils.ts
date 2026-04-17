@@ -1,10 +1,9 @@
-/** Recursively deep-merge source into target (returns new object). */
-export function deepMerge(target, source) {
+export function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
   const out = Object.assign({}, target);
   for (const [k, v] of Object.entries(source)) {
     if (v !== null && typeof v === 'object' && !Array.isArray(v) &&
         out[k] !== null && typeof out[k] === 'object' && !Array.isArray(out[k])) {
-      out[k] = deepMerge(out[k], v);
+      out[k] = deepMerge(out[k] as Record<string, unknown>, v as Record<string, unknown>);
     } else {
       out[k] = v;
     }
@@ -12,13 +11,9 @@ export function deepMerge(target, source) {
   return out;
 }
 
-/**
- * Find all patterns in cardsData matching ref, merge least→most specific,
- * return combined override or null.
- */
-export function matchCardsData(ref, cardsData) {
+export function matchCardsData(ref: string, cardsData: Record<string, Record<string, unknown>> | null | undefined): Record<string, unknown> | null {
   if (!cardsData || !ref) return null;
-  const matches = [];
+  const matches: { specificity: number; data: Record<string, unknown> }[] = [];
   for (const [pattern, data] of Object.entries(cardsData)) {
     if (pattern.endsWith('*')) {
       const prefix = pattern.slice(0, -1);
@@ -29,13 +24,12 @@ export function matchCardsData(ref, cardsData) {
   }
   if (!matches.length) return null;
   matches.sort((a, b) => a.specificity - b.specificity);
-  let merged = {};
+  let merged: Record<string, unknown> = {};
   for (const { data } of matches) merged = deepMerge(merged, data);
   return merged;
 }
 
-/** Resolve a relative path against a base URL. Already-absolute paths pass through. */
-export function resolveUrl(path, base) {
+export function resolveUrl(path: string | null | undefined, base: string | null | undefined): string {
   if (!path) return '';
   if (path.startsWith('data:') || path.startsWith('http://') ||
       path.startsWith('https://') || path.startsWith('//') || path.startsWith('/')) {
@@ -45,8 +39,7 @@ export function resolveUrl(path, base) {
   return b + path;
 }
 
-/** Normalize any CSS color string to #rrggbb (or null if invalid/transparent). */
-export function normalizeColor(raw) {
+export function normalizeColor(raw: string | null | undefined): string | null {
   if (!raw) return null;
   raw = raw.trim();
   if (!raw) return null;
@@ -57,7 +50,7 @@ export function normalizeColor(raw) {
   try {
     const tmp = document.createElement('canvas');
     tmp.width = tmp.height = 1;
-    const c = tmp.getContext('2d');
+    const c = tmp.getContext('2d')!;
     c.fillStyle = raw; c.fillRect(0, 0, 1, 1);
     const [r, g, b, a] = c.getImageData(0, 0, 1, 1).data;
     if (a === 0) return null;
@@ -65,23 +58,17 @@ export function normalizeColor(raw) {
   } catch { return null; }
 }
 
-/**
- * Resolve a field that is a plain value (locale API) or localized object { fr, en }.
- * Returns the localized string or the value as-is.
- */
-export function localize(v, lang) {
+export function localize(v: string | Record<string, string> | null | undefined, lang: string): string | null {
   if (v == null) return null;
-  if (typeof v === 'object') return v[lang] ?? v.en ?? null;
+  if (typeof v === 'object') return v[lang] ?? v['en'] ?? null;
   return v;
 }
 
-/** True if the codepoint falls in the Private Use Area (alteredicons font). */
-export function isPUA(cp) {
+export function isPUA(cp: number): boolean {
   return cp >= 0xE000 && cp <= 0xF8FF;
 }
 
-/** True if the codepoint is a circled/enclosed number character. */
-export function isCircledNumber(cp) {
+export function isCircledNumber(cp: number): boolean {
   return (cp >= 0x2460 && cp <= 0x249B) ||
          (cp >= 0x24EA && cp <= 0x24FF) ||
          (cp >= 0x2776 && cp <= 0x2793);

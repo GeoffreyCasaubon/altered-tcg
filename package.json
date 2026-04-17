@@ -16,17 +16,24 @@
     "dist"
   ],
   "scripts": {
+    "prepare": "vite build",
     "dev": "vite --mode demo",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "vue-tsc --noEmit"
+    "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
     "vue": "^3.4.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
+    "@vitest/coverage-v8": "^4.1.4",
+    "happy-dom": "^20.9.0",
+    "typescript": "^6.0.3",
     "vite": "^5.0.0",
+    "vitest": "^4.1.4",
     "vue": "^3.4.0",
     "vue-tsc": "^2.0.0"
   },

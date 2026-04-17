@@ -49,8 +49,8 @@
 
 <script setup>
 import { ref } from 'vue';
-import { AlteredCard } from '../src/components/index.js';
-import { useAlteredCard } from '../src/composables/useAlteredCard.js';
+import { AlteredCard } from '../src/components/index';
+import { useAlteredCard } from '../src/composables/useAlteredCard';
 
 const CARD_API_URL = '/altered-api/api/cards/reference/{ref}?locale={locale}';
 
