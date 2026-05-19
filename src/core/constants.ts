@@ -10,7 +10,7 @@ export const RESOURCES: ResourceOptions = {
   configIndex:               'config/index.json',
   alteredIconsCss:           'assets/fonts/alteredicons.css',
   qrcodeLib:                 'assets/vendor/qrcodejs/qrcode.min.js',
-  cardApiUrl:                'https://altered-core-cards-api.toxicity.be/api/cards/reference/{ref}?locale={locale}',
+  cardApiUrl:                'https://cards.alteredcore.org/api/cards/reference/{ref}?locale={locale}',
   proxyUrl:                  false,
   useApiBackground:          false,
   backgroundUrl:             'https://cdn.alteredcore.org/cards/assets/{set}/{id}.webp',
