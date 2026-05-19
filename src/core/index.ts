@@ -3,7 +3,7 @@ import type { MountResult } from './renderer';
 import type { CardJson, MappingDef, ResourceOptions } from './types';
 
 const DEFAULT_CARD_API_URL =
-  'https://altered-core-cards-api.toxicity.be/api/cards/reference/{ref}?locale={locale}';
+  'https://cards.alteredcore.org/api/cards/reference/{ref}?locale={locale}';
 
 interface CardRendererOptions extends Partial<ResourceOptions> {
   cardApiUrl?: string;
