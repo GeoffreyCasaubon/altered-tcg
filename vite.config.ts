@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
         open: true,
         proxy: {
           '/altered-api': {
-            target: 'https://altered-core-cards-api.toxicity.be',
+            target: 'https://cards.alteredcore.org',
             changeOrigin: true,
             rewrite: (path) => path.replace(/^\/altered-api/, ''),
           },
